@@ -1,0 +1,7 @@
+{
+  "start_url": "https://portal.thirdweb.com/typescript/v5",
+  "output_file": "scraped_data.json",
+  "max_depth": 2,
+  "links_file": "generated_links.txt",
+  "use_generated_links": false
+}
