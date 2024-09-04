@@ -49,15 +49,15 @@ async def scrape_from_file(links_file):
     
     return data
 
-async def scrape_website(base_url, max_depth):
+async def scrape_website(base_url, max_depth, max_concurrent):
     visited = set()
     to_visit = [(base_url, 0)]
     data = []
 
     async with aiohttp.ClientSession() as session:
         while to_visit:
-            current_batch = to_visit[:10]  # Process 10 URLs at a time
-            to_visit = to_visit[10:]
+            current_batch = to_visit[:max_concurrent]
+            to_visit = to_visit[max_concurrent:]
 
             tasks = [process_url(session, url, depth, visited, data, to_visit, max_depth, base_url) for url, depth in current_batch]
             await asyncio.gather(*tasks)
@@ -114,11 +114,11 @@ async def main():
     links_file = config['links_file']
     
     start_time = time.time()
-    
+    max_concurrent = config.get('max_concurrent', 10)
     if use_generated_links:
         scraped_data = await scrape_from_file(links_file)
     else:
-        scraped_data = await scrape_website(start_url, max_depth)
+        scraped_data = await scrape_website(start_url, max_depth, max_concurrent)
     
     await save_to_json(scraped_data, output_file)
     
