@@ -73,7 +73,7 @@ def process_json_file(input_file, output_file):
         url = item['URL']
         content = item['content']
 
-        title = url.replace("https://portal.thirdweb.com/typescript/v5/", "").strip("/")
+        title = url.replace("https://portal.thirdweb.com/react/v5/", "").strip("/")
         
         summarized_content = summarize_text(content)
 

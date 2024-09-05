@@ -2,7 +2,7 @@
 import asyncio
 import aiohttp
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, urldefrag
 import json
 import time
 import os
@@ -38,13 +38,13 @@ def extract_internal_links(base_url, html):
     for anchor in soup.find_all('a', href=True):
         href = anchor['href']
         full_url = urljoin(base_url, href)
-        parsed_url = urlparse(full_url)
+        defragged_url, _ = urldefrag(full_url)  # Remove the fragment
+        parsed_url = urlparse(defragged_url)
 
         if parsed_url.netloc == base_domain and parsed_url.path.startswith(base_path):
-            links.add(full_url)
+            links.add(defragged_url)
     
     return links
-
 async def generate_links(start_url, max_depth, output_file):
     visited = set()
     to_visit = [(start_url, 0)]

@@ -68,7 +68,6 @@ async def process_url(session, url, depth, visited, data, to_visit, max_depth, b
     result = await scrape_url(session, url)
     if result:
         data.append(result)
-        await save_to_json_realtime(result)
 
     if depth < max_depth:
         try:
@@ -79,7 +78,6 @@ async def process_url(session, url, depth, visited, data, to_visit, max_depth, b
                     to_visit.append((link, depth + 1))
         except Exception as e:
             print(f"Error fetching links from {url}: {e}")
-
 def extract_internal_links(base_url, html):
     soup = BeautifulSoup(html, 'html5lib')
     links = set()
@@ -95,10 +93,12 @@ def extract_internal_links(base_url, html):
     
     return links
 
-async def save_to_json_realtime(data, file_name="scraped_data.json"):
+async def save_to_json_realtime(data, file_name="scraped_data.json", is_first=False):
     async with aiofiles.open(file_name, 'a', encoding='utf-8') as json_file:
-        await json_file.write(json.dumps(data, ensure_ascii=False) + '\n')
-
+        if not is_first:
+            await json_file.write(',\n')
+        await json_file.write(json.dumps(data, ensure_ascii=False, indent=2))
+        
 async def main():
     config = await load_config()
     start_url = config['start_url']
@@ -110,19 +110,25 @@ async def main():
     start_time = time.time()
     max_concurrent = config.get('max_concurrent', 10)
 
-    # Clear the output file before starting
+    # Start the JSON array
     async with aiofiles.open(output_file, 'w') as f:
-        await f.write('')
+        await f.write('[\n')
 
     if use_generated_links:
         scraped_data = await scrape_from_file(links_file)
-        for item in scraped_data:
-            await save_to_json_realtime(item, output_file)
+        for i, item in enumerate(scraped_data):
+            await save_to_json_realtime(item, output_file, is_first=(i==0))
     else:
-        await scrape_website(start_url, max_depth, max_concurrent)
+        data = await scrape_website(start_url, max_depth, max_concurrent)
+        for i, item in enumerate(data):
+            await save_to_json_realtime(item, output_file, is_first=(i==0))
+    
+    # Close the JSON array
+    async with aiofiles.open(output_file, 'a') as f:
+        await f.write('\n]')
     
     end_time = time.time()
     print(f"Total time taken: {end_time - start_time:.2f} seconds")
-
+    
 if __name__ == "__main__":
     asyncio.run(main())
