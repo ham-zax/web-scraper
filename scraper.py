@@ -1,15 +1,14 @@
-
-# scraper.py
 import asyncio
 import aiohttp
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 import json
 import time
+import aiofiles
 
 async def load_config(config_file="config.json"):
-    with open(config_file, 'r') as file:
-        return json.load(file)
+    async with aiofiles.open(config_file, 'r') as file:
+        return json.loads(await file.read())
 
 async def fetch_html(session, url):
     async with session.get(url) as response:
@@ -34,20 +33,15 @@ async def scrape_url(session, url):
         return None
 
 async def scrape_from_file(links_file):
-    data = []
-    with open(links_file, 'r') as f:
-        urls = f.read().splitlines()
+    async with aiofiles.open(links_file, 'r') as f:
+        urls = await f.read()
+    urls = urls.splitlines()
     
     async with aiohttp.ClientSession() as session:
         tasks = [scrape_url(session, url) for url in urls]
         results = await asyncio.gather(*tasks)
         
-        for result in results:
-            if result:
-                data.append(result)
-                print(f"Scraped: {result['URL']}")
-    
-    return data
+    return [result for result in results if result]
 
 async def scrape_website(base_url, max_depth, max_concurrent):
     visited = set()
@@ -74,6 +68,7 @@ async def process_url(session, url, depth, visited, data, to_visit, max_depth, b
     result = await scrape_url(session, url)
     if result:
         data.append(result)
+        await save_to_json_realtime(result)
 
     if depth < max_depth:
         try:
@@ -100,10 +95,9 @@ def extract_internal_links(base_url, html):
     
     return links
 
-async def save_to_json(data, file_name="scraped_data.json"):
-    with open(file_name, 'w', encoding='utf-8') as json_file:
-        json.dump(data, json_file, ensure_ascii=False, indent=4)
-    print(f"Data successfully saved to {file_name}")
+async def save_to_json_realtime(data, file_name="scraped_data.json"):
+    async with aiofiles.open(file_name, 'a', encoding='utf-8') as json_file:
+        await json_file.write(json.dumps(data, ensure_ascii=False) + '\n')
 
 async def main():
     config = await load_config()
@@ -115,12 +109,17 @@ async def main():
     
     start_time = time.time()
     max_concurrent = config.get('max_concurrent', 10)
+
+    # Clear the output file before starting
+    async with aiofiles.open(output_file, 'w') as f:
+        await f.write('')
+
     if use_generated_links:
         scraped_data = await scrape_from_file(links_file)
+        for item in scraped_data:
+            await save_to_json_realtime(item, output_file)
     else:
-        scraped_data = await scrape_website(start_url, max_depth, max_concurrent)
-    
-    await save_to_json(scraped_data, output_file)
+        await scrape_website(start_url, max_depth, max_concurrent)
     
     end_time = time.time()
     print(f"Total time taken: {end_time - start_time:.2f} seconds")

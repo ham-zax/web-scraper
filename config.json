@@ -3,6 +3,6 @@
   "output_file": "scraped_data.json",
   "max_depth": 2,
   "links_file": "generated_links.txt",
-  "use_generated_links": false,
+  "use_generated_links": true,
   "max_concurrent": 10
 }
